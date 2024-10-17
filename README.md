@@ -36,8 +36,11 @@ Visualization Tools: Power BI or Tableau (optional for visualization phase).
 ## Project Phases
 
 Phase 1: Data Exploration and Cleaning
+
 Phase 2: Data Pipeline Development
+
 Phase 3: Advanced Data Transformation
+
 Phase 4: Predictive Modeling and Visualization
 
 ## Contact
