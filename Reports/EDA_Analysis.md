@@ -3,6 +3,14 @@
 ### 1. **Data Overview**
 The dataset used for this analysis contains information about hotel bookings, including factors such as hotel type, lead time, booking status, market segment, and pricing (ADR – Average Daily Rate).
 
+#### **1.1 Data Cleaning and Normalization**
+- Data Cleaning is done on the following columns based on our data explorations
+  - Children - Used the median to fill the null values
+  - is_canceled - Converted to One-shot binary from Yes or No
+  - country - Used the mode to fill the null values
+  - agent - Explicity cast Unknown in null values
+  - company - Explicity cast Unknown in null values 
+
 ---
 
 ### 2. **Key Insights**

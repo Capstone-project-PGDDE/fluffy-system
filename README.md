@@ -35,7 +35,8 @@ Visualization Tools: Power BI or Tableau (optional for visualization phase).
 
 ## Project Phases
 
-Phase 1: Data Exploration and Cleaning
+Phase 1: Data Exploration and Cleaning 
+- ![Reports](./Reports/EDA_Analysis.md)
 
 Phase 2: Data Pipeline Development
 
