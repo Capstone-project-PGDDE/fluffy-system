@@ -31,7 +31,7 @@ jobs:
     - name: Upload Models to Google Cloud Storage
       run: |
         GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
-        gcloud storage cp asia-south1 gs://model-storage-group-18
+        gcloud storage cp .\Models  gs://model-storage-group-18 --recursive       
         
 
     - name: Deploy Models to Vertex AI
@@ -39,6 +39,6 @@ jobs:
         gcloud ai models upload \
           --region=us-central1 \
           --display-name=model-deployment \
-          --artifact-uri=gs://$GCP_BUCKET_NAME/models/
+          --artifact-uri=gs://$GCP_BUCKET_NAME/Models/
       env:
         GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
