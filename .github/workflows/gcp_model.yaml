@@ -30,7 +30,7 @@ jobs:
 
     - name: Upload Models to Google Cloud Storage
       run: |
-        gcloud storage cp .\Models  ${{ secrets.GCP_BUCKET_NAME }} --recursive       
+        gcloud storage cp .\Models  gs://model-storage-group-18 --recursive       
         GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
 
     - name: Deploy Models to Vertex AI
