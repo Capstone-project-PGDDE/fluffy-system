@@ -30,8 +30,9 @@ jobs:
 
     - name: Upload Models to Google Cloud Storage
       run: |
-        gsutil cp -r models gs://$GCP_BUCKET_NAME
         GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
+        gcloud storage cp asia-south1 gs://model-storage-group-18
+        
 
     - name: Deploy Models to Vertex AI
       run: |
