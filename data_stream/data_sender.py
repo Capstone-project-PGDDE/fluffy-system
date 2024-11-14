@@ -38,7 +38,7 @@ def send_data_to_kafka(data, topic="hotel-bookings"):
 # Run the infinite loop to generate and stream data
 try:
     while True:
-        synthetic_data = generate_synthetic_data()  # Generate 100 rows of synthetic data
+        synthetic_data = generate_synthetic_data()  # Generate 60 rows of synthetic data
         send_data_to_kafka(synthetic_data)
         producer.flush()  # Ensure all messages are sent
 except KeyboardInterrupt:
