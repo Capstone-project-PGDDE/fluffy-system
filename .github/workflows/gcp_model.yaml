@@ -3,7 +3,7 @@ name: Deploy Models to GCP
 on:
   push:
     branches:
-      - main
+      - Test_Deployment
     paths:
       - 'Models/**'
 
