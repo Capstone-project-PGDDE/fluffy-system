@@ -1,0 +1,44 @@
+name: Deploy Models to GCP
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Models/**'
+
+jobs:
+  deploy:
+    name: Deploy Models to Google Cloud Platform
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        version: 'latest'
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+    - name: Authenticate with Google Cloud
+      run: |
+        echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > ${{ runner.temp }}/gcloud.json
+        gcloud auth activate-service-account --key-file=${{ runner.temp }}/gcloud.json
+
+    - name: Upload Models to Google Cloud Storage
+      run: |
+        gsutil cp -r models gs://$GCP_BUCKET_NAME/models/
+      env:
+        GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
+
+    - name: Deploy Models to Vertex AI
+      run: |
+        gcloud ai models upload \
+          --region=us-central1 \
+          --display-name=model-deployment \
+          --artifact-uri=gs://$GCP_BUCKET_NAME/models/
+      env:
+        GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
