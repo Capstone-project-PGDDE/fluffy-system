@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir \
 
 # Copy the pipeline code into the container
 WORKDIR /pipelines
-COPY ingestion_pipeline.py /pipelines/
-COPY Pred_Cancellation.py /pipelines/
+COPY Deployment/ingestion_pipeline.py /pipelines/
+COPY Deployment/Pred_Cancellation.py /pipelines/
 
 # Set entrypoint
 ENTRYPOINT ["python"]
