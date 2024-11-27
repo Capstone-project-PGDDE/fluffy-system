@@ -26,7 +26,9 @@ jobs:
       # Step 1: Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v3
-
+      # List files for debugging
+      - name: List files for debugging
+        run: ls -R
       # Step 2: Authenticate to Google Cloud (v1 method)
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v1
