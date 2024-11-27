@@ -163,6 +163,6 @@ for model_name, model in regression_models.items():
 
 # Save the best regression model for ADR Prediction
 if best_regression_model is not None:
-    file_name = f'models/{best_regression_model_name.lower().replace(" ", "_")}_best_model.pkl'
+    file_name = f'models/{best_regression_model_name.lower().replace(" ", "_")}_adr_model.pkl'
     joblib.dump(best_regression_model, file_name)
     print(f"Best regression model '{best_regression_model_name}' saved to {file_name} with R²: {best_r2:.2f}")
