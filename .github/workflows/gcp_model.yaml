@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - Deployment/** 
+      - .github/workflows/** 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
@@ -41,7 +42,7 @@ jobs:
           project_id: ${{ env.PROJECT_ID }}
           service_account_key: ${{ secrets.GCP_SA_KEY }}
 
-       - name: Copy Models to GCS
+      - name: Copy Models to GCS
         run: gcloud storage cp ./Models gs://capstone-model-group-18 --recursive
 
       # Authenticate Docker to push to GCR
