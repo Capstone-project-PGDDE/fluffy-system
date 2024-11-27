@@ -5,15 +5,15 @@ on:
     branches:
       - main
     paths:
-      - Deployment/** 
-      - .github/workflows/** 
+      - Deployment/**  # Trigger on changes in the Deployment folder
+      - .github/workflows/**  # Trigger on changes in workflow files
+
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   BUCKET: ${{ secrets.GCP_BUCKET_NAME }}
   INGESTION_IMAGE_NAME: ingestion-pipeline
   PREDICTION_IMAGE_NAME: prediction-pipeline
-  SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
 jobs:
   deploy:
@@ -24,58 +24,54 @@ jobs:
       id-token: 'write'  # Required for Workload Identity Federation
 
     steps:
-      # Checkout the repository
+      # Step 1: Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Authenticate to Google Cloud
+      # Step 2: Authenticate to Google Cloud
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: principal://iam.googleapis.com/projects/880519683680/locations/global/workloadIdentityPools/github-workload-provider/subject/SUBJECT_ATTRIBUTE_VALUE
-          service_account: ${{ env.SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      # Set up Google Cloud SDK
+      # Step 3: Set up Google Cloud SDK
       - name: Set up Google Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ env.PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Copy Models to GCS
-        run: gcloud storage cp ./Models gs://capstone-model-group-18 --recursive
-
-      # Authenticate Docker to push to GCR
+      # Step 4: Authenticate Docker for GCR
       - name: Authenticate Docker
         run: gcloud auth configure-docker
 
-      # Build and Push Ingestion Pipeline Docker Image
+      # Step 5: Build and Push Ingestion Pipeline Docker Image
       - name: Build and Push Ingestion Docker Image
         run: |
           docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.INGESTION_IMAGE_NAME }}:latest -f Deployment/Dockerfile .
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.INGESTION_IMAGE_NAME }}:latest
 
-      # Build and Push Prediction Pipeline Docker Image
+      # Step 6: Build and Push Prediction Pipeline Docker Image
       - name: Build and Push Prediction Docker Image
         run: |
           docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.PREDICTION_IMAGE_NAME }}:latest -f Deployment/Dockerfile .
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.PREDICTION_IMAGE_NAME }}:latest
 
-      # Create Flex Template for Ingestion Pipeline
+      # Step 7: Create Flex Template for Ingestion Pipeline
       - name: Create Ingestion Flex Template
         run: |
           gcloud dataflow flex-template build gs://$BUCKET/templates/ingestion_pipeline.json \
             --image gcr.io/$PROJECT_ID/$INGESTION_IMAGE_NAME:latest \
             --sdk-language "PYTHON"
 
-      # Create Flex Template for Prediction Pipeline
+      # Step 8: Create Flex Template for Prediction Pipeline
       - name: Create Prediction Flex Template
         run: |
           gcloud dataflow flex-template build gs://$BUCKET/templates/prediction_pipeline.json \
             --image gcr.io/$PROJECT_ID/$PREDICTION_IMAGE_NAME:latest \
             --sdk-language "PYTHON"
 
-      # Update or Create Cloud Scheduler for Ingestion Pipeline
+      # Step 9: Update or Create Cloud Scheduler for Ingestion
       - name: Update Cloud Scheduler for Ingestion
         run: |
           gcloud scheduler jobs update http ingestion-scheduler \
@@ -93,7 +89,6 @@ jobs:
                 "tempLocation": "gs://'$BUCKET'/temp/"
               }
             }' \
-            --oauth-service-account-email=$SERVICE_ACCOUNT \
             --location=$REGION || gcloud scheduler jobs create http ingestion-scheduler \
             --schedule "0 * * * *" \
             --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
@@ -109,10 +104,9 @@ jobs:
                 "tempLocation": "gs://'$BUCKET'/temp/"
               }
             }' \
-            --oauth-service-account-email=$SERVICE_ACCOUNT \
             --location=$REGION
 
-      # Update or Create Cloud Scheduler for Prediction Pipeline
+      # Step 10: Update or Create Cloud Scheduler for Prediction
       - name: Update Cloud Scheduler for Prediction
         run: |
           gcloud scheduler jobs update http prediction-scheduler \
@@ -130,7 +124,6 @@ jobs:
                 "tempLocation": "gs://'$BUCKET'/temp/"
               }
             }' \
-            --oauth-service-account-email=$SERVICE_ACCOUNT \
             --location=$REGION || gcloud scheduler jobs create http prediction-scheduler \
             --schedule "0 0 * * *" \
             --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
@@ -146,5 +139,4 @@ jobs:
                 "tempLocation": "gs://'$BUCKET'/temp/"
               }
             }' \
-            --oauth-service-account-email=$SERVICE_ACCOUNT \
             --location=$REGION
