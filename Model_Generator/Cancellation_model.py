@@ -109,6 +109,6 @@ for model_name, model_class in models.items():
 
 # Save the best model
 if best_model is not None:
-    file_name = f'models/{best_model_name.lower().replace(" ", "_")}_best_model.pkl'
+    file_name = f'models/{best_model_name.lower().replace(" ", "_")}_cancellation_model.pkl'
     joblib.dump(best_model, file_name)
     print(f"Best model '{best_model_name}' saved to {file_name} with accuracy: {best_accuracy * 100:.2f}%")
