@@ -1,43 +1,146 @@
-name: Deploy Models to GCP
+name: GCP Deployment Workflow
 
 on:
   push:
     branches:
-      - Test_Deployment
+      - main
     paths:
-      - 'Models/**'
+      - Deployment/**  # Trigger workflow only when files in the Deployment folder change
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  BUCKET: ${{ secrets.GCP_BUCKET_NAME }}
+  INGESTION_IMAGE_NAME: ingestion-pipeline
+  PREDICTION_IMAGE_NAME: prediction-pipeline
+  SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
 jobs:
   deploy:
-    name: Deploy Models to Google Cloud Platform
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: 'read'
+      id-token: 'write'  # Required for Workload Identity Federation
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      # Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Set up Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-      with:
-        version: 'latest'
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-        service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+      # Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
 
-    - name: Authenticate with Google Cloud
-      run: |
-        echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > ${{ runner.temp }}/gcloud.json
-        gcloud auth activate-service-account --key-file=${{ runner.temp }}/gcloud.json
+      # Set up Google Cloud SDK
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
-    - name: Upload Models to Google Cloud Storage
-      run: |
-        ggcloud storage cp .\Models gs://model-storage-group-18 --recursive       
-        GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
+      # Authenticate Docker to push to GCR
+      - name: Authenticate Docker
+        run: gcloud auth configure-docker
 
-    - name: Deploy Models to Vertex AI
-      run: |
-        gcloud ai models upload \
-          --region=us-central1 \
-          --display-name=model-deployment \
-          --artifact-uri=gs://$GCP_BUCKET_NAME/Models/
-      env:
-        GCP_BUCKET_NAME: ${{ secrets.GCP_BUCKET_NAME }}
+      # Build and Push Ingestion Pipeline Docker Image
+      - name: Build and Push Ingestion Docker Image
+        run: |
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.INGESTION_IMAGE_NAME }}:latest -f Deployment/Dockerfile .
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.INGESTION_IMAGE_NAME }}:latest
+
+      # Build and Push Prediction Pipeline Docker Image
+      - name: Build and Push Prediction Docker Image
+        run: |
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.PREDICTION_IMAGE_NAME }}:latest -f Deployment/Dockerfile .
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.PREDICTION_IMAGE_NAME }}:latest
+
+      # Create Flex Template for Ingestion Pipeline
+      - name: Create Ingestion Flex Template
+        run: |
+          gcloud dataflow flex-template build gs://$BUCKET/templates/ingestion_pipeline.json \
+            --image gcr.io/$PROJECT_ID/$INGESTION_IMAGE_NAME:latest \
+            --sdk-language "PYTHON"
+
+      # Create Flex Template for Prediction Pipeline
+      - name: Create Prediction Flex Template
+        run: |
+          gcloud dataflow flex-template build gs://$BUCKET/templates/prediction_pipeline.json \
+            --image gcr.io/$PROJECT_ID/$PREDICTION_IMAGE_NAME:latest \
+            --sdk-language "PYTHON"
+
+      # Update or Create Cloud Scheduler for Ingestion Pipeline
+      - name: Update Cloud Scheduler for Ingestion
+        run: |
+          gcloud scheduler jobs update http ingestion-scheduler \
+            --schedule "0 * * * *" \
+            --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
+            --http-method POST \
+            --message-body '{
+              "jobName": "hourly-ingestion",
+              "parameters": {
+                "project": "'$PROJECT_ID'",
+                "tempLocation": "gs://'$BUCKET'/temp/",
+                "region": "'$REGION'"
+              },
+              "environment": {
+                "tempLocation": "gs://'$BUCKET'/temp/"
+              }
+            }' \
+            --oauth-service-account-email=$SERVICE_ACCOUNT \
+            --location=$REGION || gcloud scheduler jobs create http ingestion-scheduler \
+            --schedule "0 * * * *" \
+            --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
+            --http-method POST \
+            --message-body '{
+              "jobName": "hourly-ingestion",
+              "parameters": {
+                "project": "'$PROJECT_ID'",
+                "tempLocation": "gs://'$BUCKET'/temp/",
+                "region": "'$REGION'"
+              },
+              "environment": {
+                "tempLocation": "gs://'$BUCKET'/temp/"
+              }
+            }' \
+            --oauth-service-account-email=$SERVICE_ACCOUNT \
+            --location=$REGION
+
+      # Update or Create Cloud Scheduler for Prediction Pipeline
+      - name: Update Cloud Scheduler for Prediction
+        run: |
+          gcloud scheduler jobs update http prediction-scheduler \
+            --schedule "0 0 * * *" \
+            --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
+            --http-method POST \
+            --message-body '{
+              "jobName": "daily-prediction",
+              "parameters": {
+                "project": "'$PROJECT_ID'",
+                "tempLocation": "gs://'$BUCKET'/temp/",
+                "region": "'$REGION'"
+              },
+              "environment": {
+                "tempLocation": "gs://'$BUCKET'/temp/"
+              }
+            }' \
+            --oauth-service-account-email=$SERVICE_ACCOUNT \
+            --location=$REGION || gcloud scheduler jobs create http prediction-scheduler \
+            --schedule "0 0 * * *" \
+            --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
+            --http-method POST \
+            --message-body '{
+              "jobName": "daily-prediction",
+              "parameters": {
+                "project": "'$PROJECT_ID'",
+                "tempLocation": "gs://'$BUCKET'/temp/",
+                "region": "'$REGION'"
+              },
+              "environment": {
+                "tempLocation": "gs://'$BUCKET'/temp/"
+              }
+            }' \
+            --oauth-service-account-email=$SERVICE_ACCOUNT \
+            --location=$REGION
