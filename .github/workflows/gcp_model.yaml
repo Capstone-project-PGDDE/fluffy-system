@@ -76,33 +76,20 @@ jobs:
         run: |
           gcloud scheduler jobs update http ingestion-scheduler \
             --schedule "0 * * * *" \
-            --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
+            --time-zone "Asia/Kolkata" \
+            --uri "https://dataflow.googleapis.com/v1b3/projects/iitj-capstone-project-group-18/locations/asia-south1/flexTemplates:launch" \
+            --http-method POST \
             --http-method POST \
             --message-body '{
-              "jobName": "hourly-ingestion",
-              "parameters": {
-                "project": "'$PROJECT_ID'",
-                "tempLocation": "gs://'$BUCKET'/temp/",
-                "region": "'$REGION'"
-              },
-              "environment": {
-                "tempLocation": "gs://'$BUCKET'/temp/"
-              }
-            }' \
-            --location=$REGION || gcloud scheduler jobs create http ingestion-scheduler \
-            --schedule "0 * * * *" \
-            --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
-            --http-method POST \
-            --message-body '{
-              "jobName": "hourly-ingestion",
-              "parameters": {
-                "project": "'$PROJECT_ID'",
-                "tempLocation": "gs://'$BUCKET'/temp/",
-                "region": "'$REGION'"
-              },
-              "environment": {
-                "tempLocation": "gs://'$BUCKET'/temp/"
-              }
+                "jobName": "hourly-ingestion",
+                "parameters": {
+                    "project": "iitj-capstone-project-group-18",
+                    "tempLocation": "gs://dataflow-apache-quickstart_iitj-capstone-project-group-18/temp/",
+                    "region": "asia-south1"
+                },
+                "environment": {
+                    "tempLocation": "gs://dataflow-apache-quickstart_iitj-capstone-project-group-18/temp/"
+                }
             }' \
             --location=$REGION
 
@@ -111,6 +98,7 @@ jobs:
         run: |
           gcloud scheduler jobs update http prediction-scheduler \
             --schedule "0 0 * * *" \
+            --time-zone "Asia/Kolkata" \
             --uri "https://dataflow.googleapis.com/v1b3/projects/$PROJECT_ID/locations/$REGION/flexTemplates:launch" \
             --http-method POST \
             --message-body '{
