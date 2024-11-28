@@ -5,3 +5,5 @@ google-cloud-bigquery==3.11.0
 google-auth==2.22.0
 flask
 gunicorn
+gcsfs
+fsspec

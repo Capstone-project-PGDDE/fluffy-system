@@ -154,6 +154,9 @@ def ingest_data():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/',methods=['GET'])
+def dummy():
+    return jsonify({"Success, Now try using /ingest to ingest data or /predict to run prediction model"})
 
 @app.route('/predict', methods=['POST'])
 def predict_data():
