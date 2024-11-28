@@ -41,11 +41,9 @@ Phase 1: Data Exploration and Cleaning
 Phase 2: Data Pipeline Development
 - ![alt](./images/Data%20Pipeline%20Workflow.svg)
 
-Phase 3: Advanced Data Transformation
+Phase 3: Predictive Modeling and Visualization
 
-Phase 4: Predictive Modeling and Visualization
-
-Phase 5: Deployement
+Phase 4: Deployement
 - ![alt](./images/Blank%20board%20-%20Page%201%20Deployement%20Workflow%20Diagram.svg)
 - ![Deployement_Report](./Deployment/readme.md)
 
