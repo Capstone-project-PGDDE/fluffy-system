@@ -133,6 +133,7 @@ Visualization/
 ### **Phase 3: Predictive Modeling and Visualization**
 - Build and evaluate machine learning models.
 - Create visualizations in Power BI for business insights.
+- ![Powerbi Dashboard](./images/Dashboard.png)
 
 ### **Phase 4: Deployment**
 - Deploy the project using Docker and GCP Cloud Run.
