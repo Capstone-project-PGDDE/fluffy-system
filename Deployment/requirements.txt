@@ -8,3 +8,5 @@ gunicorn
 gcsfs
 fsspec
 pyarrow
+google-cloud-storage
+scikit-learn

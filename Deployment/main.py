@@ -2,12 +2,24 @@ from flask import Flask, jsonify, request
 import pandas as pd
 import pytz
 import uuid
+import sys
+from google.cloud import storage
+import joblib
 from datetime import datetime
 import numpy as np
 from google.cloud import bigquery
-
+from sklearn.preprocessing import LabelEncoder
+import logging
 app = Flask(__name__)
 
+logging.basicConfig(
+    level=logging.INFO, 
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("prediction_log.log"),  # Log to a file
+        logging.StreamHandler()  # Log to console
+    ]
+)
 # Configuration
 BUCKET_NAME = "input_data_capstone"
 GCS_FILE_PATH = f"gs://{BUCKET_NAME}/input_data/cleaned_data.csv"
@@ -15,6 +27,14 @@ BQ_PROJECT = "iitj-capstone-project-group-18"
 BQ_DATASET = "CAPSTONE_PROJECT"
 BQ_TABLE = "HOTEL_BOOKING"
 BQ_PREDICTION_TABLE = "PREDICTION_RESULTS"
+BUCKET_NAME = "capstone-model-group-18"
+CANCELLATION_MODEL_PATH = "Models/gradient_boosting_cancellation_model.pkl"
+ADR_MODEL_PATH ="Models/gradient_boosting_regressor_adr_model.pkl"
+ADR_CACHED_MODEL = None
+CANCELLATION_CACHED_MODEL = None
+SQL_QUERY = """SELECT guid,lead_time, hotel, market_segment, previous_cancellations,is_canceled,adr,is_repeated_guest,
+            booking_changes, total_of_special_requests, arrival_date_month FROM `CAPSTONE_PROJECT.HOTEL_BOOKING`;"""
+
 BIGQUERY_SCHEMA = {
     'fields': [
         {'name': 'guid', 'type': 'STRING', "mode": "NULLABLE"},
@@ -63,19 +83,61 @@ PREDICTION_BIGQUERY_SCHEMA = {
         {'name': 'booking_changes', 'type': 'INTEGER', "mode": "NULLABLE"},
         {'name': 'total_of_special_requests', 'type': 'INTEGER', "mode": "NULLABLE"},
         {'name': 'arrival_date_month', 'type': 'STRING', "mode": "NULLABLE"},
+        {'name': 'is_repeated_guest', 'type': 'INTEGER', "mode": "NULLABLE"},
+        {'name': 'is_canceled', 'type': 'BOOLEAN', "mode": "NULLABLE"},
         {'name': 'predicted_is_canceled', 'type': 'BOOLEAN', "mode": "NULLABLE"},
+        {'name': 'adr', 'type': 'FLOAT', "mode": "NULLABLE"},
+        {'name': 'predicted_adr', 'type': 'FLOAT', "mode": "NULLABLE"},
         {'name': 'insert_timestamp', 'type': 'TIMESTAMP', "mode": "NULLABLE"}
     ]
 }
 
 def load_data_from_gcs(file_path):
     """Load data from GCS into a pandas DataFrame."""
+    logging.info("Loading Data from GCS to be ingested")
     return pd.read_csv(file_path)
 
+def load_data_from_bigquery(query):
+    """Load data from Bigquery Table into a pandas Dataframe"""
+    try:
+        logging.info("Connecting to big query")
+        client = bigquery.Client(project=BQ_PROJECT)
+        query_job = client.query(query)
+        df = query_job.to_dataframe()
+        return df
+    except Exception as e:
+        logging.error(f"Failed to load the data from Bigquery with the following error {str(e)}")
+        
+    
+def load_model_from_gcs(bucket_name, model_path,task):
+    """Load a model from GCS if not already cached."""
+    logging.info(f"Loading model for task: {task}")
+    if task == "adr":
+        global ADR_CACHED_MODEL
+        CACHED_MODEL = ADR_CACHED_MODEL
+    elif task == "cancellation":
+        global CANCELLATION_CACHED_MODEL
+        CACHED_MODEL = CANCELLATION_CACHED_MODEL
+    else:
+        CACHED_MODEL = None
+        
+    if CACHED_MODEL is None:  # Check if the model is already cached
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(model_path)
+
+        # Read the model file from GCS
+        with blob.open("rb") as model_file:
+            CACHED_MODEL = joblib.load(model_file)
+        logging.info(f"Model loaded successfully for task: {task}")
+    else:
+        logging.info("Using cached model...")
+    return CACHED_MODEL
 
 def generate_synthetic_data(input_df):
     """Generate synthetic data with random sampling and add metadata."""
     # Randomly determine the number of rows to generate (between 0 and 100)
+    logging.info("Generating Synthetic data to be inserted into Big Query")
     num_samples = np.random.randint(0, 101)  # Generates a random integer between 0 and 100
 
     # If num_samples is 0, return None
@@ -93,32 +155,58 @@ def generate_synthetic_data(input_df):
     
     # Remove unwanted columns if present
     synthetic_data = synthetic_data.drop('Unnamed: 0', axis=1, errors='ignore')
-
+    logging.info("Generation Complete ")
     return synthetic_data
 
-def generate_predictions(input_df):
-    """Generate predictions and add metadata."""
-    # Add a synthetic prediction column (replace with actual ML model prediction logic)
-    input_df['predicted_is_canceled'] = np.random.choice([True, False], size=len(input_df))
-
-    # Add GUID and timestamp
-    input_df['guid'] = [str(uuid.uuid4()) for _ in range(len(input_df))]
-    ind_zone = pytz.timezone('Asia/Kolkata')
-    input_df['insert_timestamp'] = datetime.now(ind_zone)
-
-    # Select only the columns that match the BigQuery schema
-    prediction_columns = [
-        "guid", "lead_time", "hotel", "market_segment", 
+def label_encoder(ip_data):
+    label_encoders = {}
+    for col in ['hotel', 'market_segment', 'arrival_date_month']:
+        le = LabelEncoder()
+        ip_data[col] = le.fit_transform(ip_data[col])
+        label_encoders[col] = le
+    return ip_data
+        
+def generate_predictions_with_model(df):
+    """Generate predictions using a loaded model and add metadata."""
+    input_df = df.drop('guid',axis=1)
+    logging.info(f"Starting prediction process for Cancellation")
+    cancellation_model = load_model_from_gcs(BUCKET_NAME, CANCELLATION_MODEL_PATH,"cancellation")
+    # Features expected by the model
+    cancellation_features = [
+        "lead_time", "hotel", "market_segment", 
         "previous_cancellations", "booking_changes", 
-        "total_of_special_requests", "arrival_date_month", 
-        "predicted_is_canceled", "insert_timestamp"
+        "total_of_special_requests", "arrival_date_month"
     ]
-    prediction_df = input_df[prediction_columns]
+    prediction_df = input_df[cancellation_features + ['is_canceled']].dropna()
+    label_encoder(prediction_df)
+    prediction_df['is_canceled'] = prediction_df['is_canceled'].apply(lambda x: 1 if x == 'yes' else 0)
+    try:
+        df["predicted_is_canceled"] = cancellation_model.predict(prediction_df[cancellation_features])
+        logging.info('Prediction of Cancellation ran sucessfully ')
+    except Exception as e:
+        logging.error(f"Failed to predict the error with the following error {str(e)}")
+    # Load ADR model
+    print("ADR task running")
+    adr_model = load_model_from_gcs(BUCKET_NAME, ADR_MODEL_PATH,"adr")
+    adr_features  = [
+    'hotel', 'lead_time', 'market_segment', 
+    'arrival_date_month', 'previous_cancellations', 
+    'booking_changes', 'total_of_special_requests', 
+    'is_repeated_guest']   
+    prediction_df = input_df[adr_features + ['adr']].dropna()
+    label_encoder(prediction_df)
+    try:
+        df["predicted_adr"] = adr_model.predict(prediction_df[adr_features])
+        logging.info('Prediction of adr ran sucessfully ')
+    except Exception as e:
+        logging.error(f"Failed to predict the error with the following error {str(e)}")
+    ind_zone = pytz.timezone("Asia/Kolkata")
+    df["insert_timestamp"] = datetime.now(ind_zone)
+    return df
     
-    return prediction_df
-
 def write_to_bigquery(df, project_id, dataset_id, table_id, schema):
     """Write the DataFrame to a BigQuery table."""
+    logging.info("Creating a client to write into Big query")
     client = bigquery.Client(project=project_id)
     table_ref = f"{project_id}.{dataset_id}.{table_id}"
 
@@ -131,6 +219,7 @@ def write_to_bigquery(df, project_id, dataset_id, table_id, schema):
         ),
     )
     job.result()  # Wait for the job to complete
+    logging.info(f"Data successfully written into to {table_ref}")
     return f"Data successfully written to {table_ref}."
 
 
@@ -158,22 +247,19 @@ def ingest_data():
 def dummy():
     return jsonify({"status":"Success","message":"Now try using /ingest to ingest data or /predict to run prediction model"})
 
+
 @app.route('/predict', methods=['POST'])
-def predict_data():
-    """Trigger prediction pipeline."""
+def preditct():
+    """Trigger prediction pipeline for ADR."""
     try:
-        # Step 1: Load data from GCS
-        input_df = load_data_from_gcs(GCS_FILE_PATH)
-
+        # Step 1: Load data from Bigquery
+        input_df =  load_data_from_bigquery(SQL_QUERY)
         # Step 2: Generate predictions
-        prediction_df = generate_predictions(input_df)
-
-        # Step 3: Write predictions to BigQuery
+        prediction_df = generate_predictions_with_model(input_df)
         result = write_to_bigquery(prediction_df, BQ_PROJECT, BQ_DATASET, BQ_PREDICTION_TABLE, PREDICTION_BIGQUERY_SCHEMA)
         return jsonify({"status": "success", "message": result})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
