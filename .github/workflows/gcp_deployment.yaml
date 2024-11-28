@@ -5,8 +5,9 @@ on:
     branches:
       - main
     paths:
+      - '.github/worflows/**'
       - 'Models/**'
-      - 'Deployment'
+      - 'Deployment/**'
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
