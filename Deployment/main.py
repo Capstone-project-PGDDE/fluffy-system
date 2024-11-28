@@ -156,7 +156,7 @@ def ingest_data():
 
 @app.route('/',methods=['GET'])
 def dummy():
-    return jsonify({"Success, Now try using /ingest to ingest data or /predict to run prediction model"})
+    return jsonify({"status":"Success","message":"Now try using /ingest to ingest data or /predict to run prediction model"})
 
 @app.route('/predict', methods=['POST'])
 def predict_data():
