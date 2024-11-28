@@ -1,26 +1,23 @@
-name: Deploy Prediction to Cloud Run
+name: Build and Deploy to Cloud Run
 
 on:
   push:
     branches:
-      - main  # Trigger the workflow on push to the `main` branch
+      - main
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}  # Google Cloud Project ID
-  REGION: asia-south1  # Cloud Run region
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: data-pipeline-service
-  DOCKERFILE_PATH: Deployment/Dockerfile  # Dockerfile location
+  REGION: asia-south1
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout only the Deployment directory
-      - name: Checkout Deployment Directory
+      # Step 1: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          path: Deployment  # Only checkout Deployment directory
 
       # Step 2: Authenticate with Google Cloud
       - name: Authenticate with Google Cloud
@@ -28,19 +25,24 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-      # Step 3: Configure Google Cloud SDK
-      - name: Configure Google Cloud SDK
-        run: |
-          gcloud config set project $PROJECT_ID
-          gcloud auth configure-docker gcr.io
+      # Step 3: Configure Docker for GCP
+      - name: Configure Docker for GCP
+        run: gcloud auth configure-docker
 
-      # Step 4: Build and Push the Docker image
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest f Deployment/Dockerfile .
-          docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
+      # Step 4: Debug file paths (optional)
+      - name: Debug Files
+        run: ls -R
 
-      # Step 5: Deploy to Cloud Run
+      # Step 5: Build Docker Image
+      - name: Build Docker Image
+        run: |
+          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest -f Deployment/Dockerfile .
+
+      # Step 6: Push Docker Image to GCR
+      - name: Push Docker Image
+        run: docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
+
+      # Step 7: Deploy to Cloud Run
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy $SERVICE_NAME \
