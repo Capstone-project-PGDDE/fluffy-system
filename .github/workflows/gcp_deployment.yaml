@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}  # Google Cloud Project ID
   REGION: asia-south1  # Cloud Run region
-  SERVICE_NAME: prediction-service  # Service name
+  SERVICE_NAME: data-pipeline-service
   DOCKERFILE_PATH: Deployment/Dockerfile  # Dockerfile location
 
 jobs:
@@ -37,7 +37,7 @@ jobs:
       # Step 4: Build and Push the Docker image
       - name: Build and Push Docker Image
         run: |
-          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest -f Deployment/
+          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest f Deployment/Dockerfile .
           docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
 
       # Step 5: Deploy to Cloud Run
