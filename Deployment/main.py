@@ -247,7 +247,6 @@ def ingest_data():
 def dummy():
     return jsonify({"status":"Success","message":"Now try using /ingest to ingest data or /predict to run prediction model"})
 
-
 @app.route('/predict', methods=['POST'])
 def preditct():
     """Trigger prediction pipeline for ADR."""
