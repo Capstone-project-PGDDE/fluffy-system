@@ -1,0 +1,39 @@
+name: Upload Models to GCS
+
+on:
+  push:
+    paths:
+      - 'Models/**'  # Trigger the workflow only when files in the Models folder change
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}  # Google Cloud Project ID
+  BUCKET_NAME: ${{ secrets.GCS_BUCKET_NAME }}  # Google Cloud Storage bucket name
+  MODELS_PATH: Models/  # Path to the models folder
+
+jobs:
+  upload-models:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Authenticate with Google Cloud
+      - name: Authenticate with Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      # Step 3: Configure Google Cloud SDK
+      - name: Configure Google Cloud SDK
+        run: |
+          gcloud config set project $PROJECT_ID
+
+      # Step 4: Upload updated or new files to GCS
+      - name: Upload Models to GCS
+        run: |
+          for file in $(git diff --name-only --diff-filter=AM HEAD~1 | grep "^${MODELS_PATH}"); do
+            echo "Uploading $file to GCS bucket $BUCKET_NAME"
+            gsutil cp "$file" "gs://$BUCKET_NAME/$file"
+          done

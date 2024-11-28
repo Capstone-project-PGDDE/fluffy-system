@@ -1,4 +1,4 @@
-name: Deploy to Cloud Run
+name: Deploy Prediction to Cloud Run
 
 on:
   push:
@@ -8,17 +8,19 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}  # Google Cloud Project ID
   REGION: asia-south1  # Cloud Run region
-  SERVICE_NAME: data-pipeline  # Single service name
-  DOCKERFILE_PATH: Deployment/Dockerfile
+  SERVICE_NAME: prediction-service  # Service name
+  DOCKERFILE_PATH: Deployment/Dockerfile  # Dockerfile location
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the code
-      - name: Checkout code
+      # Step 1: Checkout only the Deployment directory
+      - name: Checkout Deployment Directory
         uses: actions/checkout@v3
+        with:
+          path: Deployment  # Only checkout Deployment directory
 
       # Step 2: Authenticate with Google Cloud
       - name: Authenticate with Google Cloud
@@ -35,7 +37,7 @@ jobs:
       # Step 4: Build and Push the Docker image
       - name: Build and Push Docker Image
         run: |
-          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest -f $DOCKERFILE_PATH .
+          docker build -t gcr.io/$PROJECT_ID/$SERVICE_NAME:latest -f Deployment/Dockerfile Deployment/
           docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:latest
 
       # Step 5: Deploy to Cloud Run
