@@ -1,19 +1,18 @@
-# Use the Apache Beam SDK base image
-FROM apache/beam_python3.10_sdk:2.48.0
+FROM python:3.10-slim
 
-# Install required dependencies
-RUN pip install --no-cache-dir \
-    pandas \
-    numpy \
-    google-cloud-bigquery \
-    google-cloud-storage \
-    pytz \
-    uuid
+# Set working directory
+WORKDIR /app
 
-# Copy the pipeline code into the container
-WORKDIR /pipelines
-COPY Deployment/ingestion_pipeline.py /pipelines/
-COPY Deployment/Pred_Cancellation.py /pipelines/
+# Copy requirements and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Set entrypoint
-ENTRYPOINT ["python"]
+# Copy application code
+COPY . .
+
+# Expose port for Cloud Run
+ENV PORT=8080
+EXPOSE 8080
+
+# Run the application
+CMD ["python", "main.py"]
