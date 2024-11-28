@@ -8,7 +8,7 @@ COPY Deployment/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY Deployment/ .  
 
 # Expose port for Cloud Run
 ENV PORT=8080
