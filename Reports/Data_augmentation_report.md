@@ -31,6 +31,3 @@ Samples were drawn from the original dataset.
 Noise was added to numeric features, while categorical features were retained as-is.
 Synthetic samples were concatenated with the original dataset.
 
-## Impacts Analysis
-
-Need to be done after model are trained
