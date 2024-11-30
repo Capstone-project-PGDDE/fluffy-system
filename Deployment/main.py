@@ -33,7 +33,9 @@ ADR_MODEL_PATH ="Models/gradient_boosting_regressor_adr_model.pkl"
 ADR_CACHED_MODEL = None
 CANCELLATION_CACHED_MODEL = None
 SQL_QUERY = """SELECT guid,lead_time, hotel, market_segment, previous_cancellations,is_canceled,adr,is_repeated_guest,
-            booking_changes, total_of_special_requests, arrival_date_month FROM `CAPSTONE_PROJECT.HOTEL_BOOKING`;"""
+            booking_changes, total_of_special_requests, arrival_date_month FROM `CAPSTONE_PROJECT.HOTEL_BOOKING`
+            where Date(insert_timestamp) = CURRENT_DATE();
+"""
 
 BIGQUERY_SCHEMA = {
     'fields': [
