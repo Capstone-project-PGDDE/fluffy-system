@@ -131,9 +131,17 @@ Visualization/
 - Deliverables: [Pipeline Report](./Deployment/readme.md)
 
 ### **Phase 3: Predictive Modeling and Visualization**
-- Build and evaluate machine learning models.
-- Create visualizations in Power BI for business insights.
-- ![Powerbi Dashboard](./images/Dashboard.png)
+  - Build and evaluate machine learning models.
+    -	The Gradient Boosting Classifier emerged as the best model for Cancellation Prediction:
+        -	Accuracy: 89.5%.
+        -	Precision, Recall, and F1-Score: Evaluated to balance between false positives and false negatives.
+
+    - The Gradient Boosting Regressor achieved the best results for ADR Prediction:
+        -	R² (Coefficient of Determination): 92%.
+        -	Root Mean Squared Error (RMSE): 10.5.
+        -	Mean Absolute Error (MAE): 8.2.
+  - Create visualizations in Power BI for business insights.
+  - ![Powerbi Dashboard](./images/Dashboard.png)
 
 ### **Phase 4: Deployment**
 - Deploy the project using Docker and GCP Cloud Run.
