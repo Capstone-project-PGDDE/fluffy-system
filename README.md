@@ -154,6 +154,6 @@ Visualization/
 ## **Contact**
 For any questions, suggestions, or feedback, feel free to reach out:
 
-**Email**: g23ai2071@iitj.ac.in  
+**Email**: m24de3040@iitj.ac.in or jeyadev1604@gmail.com
 
 
